@@ -45,7 +45,7 @@ def main():
     print("\n" + "=" * 60)
     print("  RUNNING WHEEL STRATEGY")
     print("=" * 60)
-    wheel_daily, trade_log = run_wheel(stock_df, splits, option_index)
+    wheel_daily, trade_log, skip_stats = run_wheel(stock_df, splits, option_index)
 
     # ── 4. Run Buy-and-Hold ──────────────────────────────────────
     print("\n" + "=" * 60)

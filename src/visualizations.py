@@ -79,7 +79,7 @@ def plot_drawdowns(
 
 
 def plot_trade_scatter(trade_log: list[dict]):
-    """Scatter plot: date vs premium, colored by outcome."""
+    """Scatter plot: date vs total cycle premium, colored by exit type."""
     _ensure_output_dir()
     if not trade_log:
         return
@@ -87,21 +87,21 @@ def plot_trade_scatter(trade_log: list[dict]):
     df = pd.DataFrame(trade_log)
 
     color_map = {
-        "EXPIRED_WORTHLESS": "green",
-        "ASSIGNED": "orange",
+        "PUT_EXPIRED": "green",
         "CALLED_AWAY": "blue",
+        "OPEN_AT_END": "gray",
     }
 
     fig, ax = plt.subplots(figsize=(14, 5))
-    for outcome, color in color_map.items():
-        subset = df[df["outcome"] == outcome]
+    for exit_type, color in color_map.items():
+        subset = df[df["exit_type"] == exit_type]
         if not subset.empty:
             ax.scatter(
-                subset["entry_date"], subset["premium_collected"],
-                c=color, label=outcome, alpha=0.6, s=30, edgecolors="none",
+                subset["entry_date"], subset["total_premiums"],
+                c=color, label=exit_type, alpha=0.6, s=30, edgecolors="none",
             )
 
-    ax.set_title("Option Trades — Premium Collected by Outcome")
+    ax.set_title("Wheel Cycles — Total Premium Collected by Outcome")
     ax.set_ylabel("Premium ($)")
     ax.set_xlabel("Date")
     ax.legend()

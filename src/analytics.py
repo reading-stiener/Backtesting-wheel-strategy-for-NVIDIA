@@ -50,34 +50,35 @@ def compute_metrics(daily_values: pd.DataFrame, label: str = "Strategy") -> dict
 
 def analyze_trades(trade_log: list[dict]) -> dict:
     """
-    Compute trade-level statistics from the trade log.
+    Compute statistics from the cycle-based trade log.
+    Each entry is a full cycle (CSP → optional assignment → CCs → exit).
     """
     if not trade_log:
-        return {"total_trades": 0}
+        return {"total_cycles": 0}
 
     df = pd.DataFrame(trade_log)
 
     total = len(df)
     wins = (df["pnl"] > 0).sum()
-    avg_premium = df["premium_collected"].mean()
-    total_premium = df["premium_collected"].sum()
 
-    puts = df[df["type"] == "P"]
-    calls = df[df["type"] == "C"]
-    assignments = (df["outcome"] == "ASSIGNED").sum()
-    called_away = (df["outcome"] == "CALLED_AWAY").sum()
-    expired = (df["outcome"] == "EXPIRED_WORTHLESS").sum()
+    all_legs = [leg for c in trade_log for leg in c["legs"]]
+    legs_df = pd.DataFrame(all_legs) if all_legs else pd.DataFrame()
+    put_legs = (legs_df["type"] == "P").sum() if len(legs_df) > 0 else 0
+    call_legs = (legs_df["type"] == "C").sum() if len(legs_df) > 0 else 0
+    assignments = (legs_df["outcome"] == "ASSIGNED").sum() if len(legs_df) > 0 else 0
 
     return {
-        "total_trades": total,
-        "put_trades": len(puts),
-        "call_trades": len(calls),
-        "win_rate": wins / total if total > 0 else 0,
-        "avg_premium": avg_premium,
-        "total_premium": total_premium,
+        "total_cycles": total,
+        "put_expired": (df["exit_type"] == "PUT_EXPIRED").sum(),
+        "called_away": (df["exit_type"] == "CALLED_AWAY").sum(),
+        "open_at_end": (df["exit_type"] == "OPEN_AT_END").sum(),
+        "total_legs": len(all_legs),
+        "put_legs": put_legs,
+        "call_legs": call_legs,
         "assignments": assignments,
-        "called_away": called_away,
-        "expired_worthless": expired,
+        "win_rate": wins / total if total > 0 else 0,
+        "avg_premium": df["total_premiums"].mean(),
+        "total_premium": df["total_premiums"].sum(),
         "avg_pnl": df["pnl"].mean(),
         "total_pnl": df["pnl"].sum(),
     }
@@ -125,17 +126,18 @@ def print_report(wheel_metrics: dict, bh_metrics: dict, trade_stats: dict):
         print(f"{label:<25} {w_val:>15} {bh_val:>15}")
 
     print("\n" + "-" * 55)
-    print("  TRADE STATISTICS (Wheel)")
+    print("  CYCLE STATISTICS (Wheel)")
     print("-" * 55)
-    print(f"  Total trades:       {trade_stats['total_trades']}")
-    print(f"  Put trades:         {trade_stats.get('put_trades', 0)}")
-    print(f"  Call trades:        {trade_stats.get('call_trades', 0)}")
+    print(f"  Total cycles:       {trade_stats['total_cycles']}")
+    print(f"  Put expired (no assignment): {trade_stats.get('put_expired', 0)}")
+    print(f"  Assigned → called away:      {trade_stats.get('called_away', 0)}")
+    print(f"  Open at end:                 {trade_stats.get('open_at_end', 0)}")
+    print(f"  Total option legs:  {trade_stats.get('total_legs', 0)}")
+    print(f"    Put legs:         {trade_stats.get('put_legs', 0)}")
+    print(f"    Call legs:        {trade_stats.get('call_legs', 0)}")
     print(f"  Win rate:           {trade_stats.get('win_rate', 0):.1%}")
-    print(f"  Avg premium:        ${trade_stats.get('avg_premium', 0):,.2f}")
+    print(f"  Avg cycle premium:  ${trade_stats.get('avg_premium', 0):,.2f}")
     print(f"  Total premium:      ${trade_stats.get('total_premium', 0):,.2f}")
-    print(f"  Assignments (put):  {trade_stats.get('assignments', 0)}")
-    print(f"  Called away:        {trade_stats.get('called_away', 0)}")
-    print(f"  Expired worthless:  {trade_stats.get('expired_worthless', 0)}")
-    print(f"  Avg trade P&L:      ${trade_stats.get('avg_pnl', 0):,.2f}")
-    print(f"  Total trade P&L:    ${trade_stats.get('total_pnl', 0):,.2f}")
+    print(f"  Avg cycle P&L:      ${trade_stats.get('avg_pnl', 0):,.2f}")
+    print(f"  Total P&L:          ${trade_stats.get('total_pnl', 0):,.2f}")
     print("=" * 70)
